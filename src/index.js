@@ -1,11 +1,8 @@
-import * as THREE from 'three/webgpu'
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import GUI from 'lil-gui'
-import { cameraPosition, cameraProjectionMatrix, cameraViewMatrix, color, cos, deltaTime, dFdx, dFdy, diffuseColor, dot, float, Fn, If, instancedArray, instanceIndex, luminance, mat2, materialColor, materialEmissive, max, mix, nodeObject, normalMap, normalWorld, pass, TWO_PI, positionWorld, rand, range, screenCoordinate, screenUV, sin, texture, time, uniform, uv, vec2, vec3, vec4, viewport, viewportSharedTexture } from 'three/tsl'
-import { bloom } from 'three/examples/jsm/tsl/display/BloomNode.js'
-import { hashBlur } from 'three/examples/jsm/tsl/display/hashBlur.js'
-import { GLTFLoader, TransformControls } from 'three/examples/jsm/Addons.js'
-import { normalizeSeed, voronoi } from './voronoi.js'
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
+import { uniform, uv, vec3 } from 'three/tsl'
+import * as THREE from 'three/webgpu'
+import { voronoi, voronoiNormalizeSeed } from './voronoi.js'
 
 /**
  * Base
@@ -71,17 +68,34 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
 renderer.setClearColor(0x111111)
 
 /**
- * Test
+ * Demo
  */
 const material = new THREE.MeshBasicNodeMaterial()
-const voronoiOutput = voronoi(uv(), 3)
-// material.colorNode = vec3(normalizeSeed(voronoiOutput.b, 3))
-material.colorNode = vec3(voronoiOutput.b)
+
+const subdivision = uniform(3)
+const seed = uniform(0)
+const channel = { value: 'r' }
+const voronoiOutput = voronoi(uv(), subdivision, seed)
+
+material.colorNode = vec3(voronoiOutput[channel.value])
+// material.colorNode = vec3(voronoiOutput.g)
 // material.colorNode = vec3(float(-0.9).mod(1))
 
 const geometry = new THREE.BoxGeometry(1, 1, 1)
 const mesh = new THREE.Mesh(geometry, material)
 scene.add(mesh)
+
+// Debug
+gui.add(subdivision, 'value', 1, 50, 1).name('subdivision')
+gui.add(seed, 'value', 0, 50, 1).name('seed')
+gui.add(channel, 'value', [ 'r', 'g', 'b', 'a' ]).name('channel').onChange(() =>
+{
+    material.colorNode = vec3(voronoiOutput[channel.value])
+
+    if(channel.value === 'a')
+        material.colorNode = voronoiNormalizeSeed(material.colorNode, subdivision, seed)
+    material.needsUpdate = true
+})
 
 /**
  * Animate

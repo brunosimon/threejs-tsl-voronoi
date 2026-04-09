@@ -1,4 +1,4 @@
-import { distance, dot, float, Fn, hash, If, Loop, uv, vec2, vec4 } from 'three/tsl'
+import { add, distance, dot, float, Fn, hash, If, Loop, uv, vec2, vec4 } from 'three/tsl'
 
 const pointsDistance = Fn(([ pointA, pointB ]) =>
 {
@@ -19,15 +19,16 @@ const pointsDistance = Fn(([ pointA, pointB ]) =>
 })
 
 // Convert seed to [0-1] range
-export const normalizeSeed = Fn(([ seed, subdivision ]) =>
+export const voronoiNormalizeSeed = Fn(([ seed, subdivision ]) =>
 {
-	return seed.div(subdivision.pow(2).sub(1))
+	return seed.div(subdivision.pow(2).sub(1)).fract()
 })
 
 // Voronoi
 // - Grid-base
 // - Repeating
 // - Approximation AND exact distance to edge
+// - Seed (can use voronoiNormalizeSeed for [0-1] range)
 export const voronoi = Fn(([position = uv(), subdivision = 1, seed = 0]) =>
 {
 	const gridPosition = position.mul(subdivision)
