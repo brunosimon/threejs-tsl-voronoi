@@ -76,7 +76,7 @@ renderer.setClearColor(0x111111)
 const material = new THREE.MeshBasicNodeMaterial()
 const voronoiOutput = voronoi(uv(), 3)
 // material.colorNode = vec3(normalizeSeed(voronoiOutput.b, 3))
-material.colorNode = vec3(voronoiOutput.g)
+material.colorNode = vec3(voronoiOutput.b)
 // material.colorNode = vec3(float(-0.9).mod(1))
 
 const geometry = new THREE.BoxGeometry(1, 1, 1)

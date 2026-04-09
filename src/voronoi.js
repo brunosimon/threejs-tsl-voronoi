@@ -1,20 +1,4 @@
-import { add, distance, dot, float, Fn, hash, If, Loop, max, uv, vec2, vec3, vec4 } from 'three/tsl'
-
-// Output a seed according to the grid position
-// Different for each cell according to subdivision
-const gridSeed = Fn(([ position, subdivision ]) =>
-{
-	return position.x.mod(subdivision).mul(subdivision).add(position.y.mod(subdivision))
-})
-
-// Output a [0-1] point position according to seed
-const seedPoint = Fn(([ seed ]) =>
-{
-	return vec2(
-		hash(seed),
-		hash(seed.add(123.456)),
-	)
-})
+import { distance, dot, float, Fn, hash, If, Loop, uv, vec2, vec4 } from 'three/tsl'
 
 const pointsDistance = Fn(([ pointA, pointB ]) =>
 {
@@ -43,6 +27,7 @@ export const normalizeSeed = Fn(([ seed, subdivision ]) =>
 // Voronoi
 // - Grid-base
 // - Repeating
+// - Approximation AND exact distance to edge
 export const voronoi = Fn(([position = uv(), subdivision = 1, seed = 0]) =>
 {
 	const gridPosition = position.mul(subdivision)
@@ -57,40 +42,56 @@ export const voronoi = Fn(([position = uv(), subdivision = 1, seed = 0]) =>
 	const secondPointPosition = vec2()
 	const secondPointDistance = float(1e6)
 
-	// Loop to check current cell and 8 neighbours
+	// Loop to check loop cell and 8 neighbours
 	Loop({ start: float(-1), end: float(1), type: 'float', condition: '<=', name: 'iX' }, ({ iX }) =>
 	{
 		Loop({ start: float(-1), end: float(1), type: 'float', condition: '<=', name: 'iY' }, ({ iY }) =>
 		{
-			const currentGridPosition = cellPosition.add(vec2(iX, iY))
-			const currentPointSeed = gridSeed(currentGridPosition, subdivision)
-			const currentPointPosition = currentGridPosition.add(seedPoint(currentPointSeed))
-			const currentPointDistance = pointsDistance(currentPointPosition, gridPosition)
+			// Cell position
+			const loopCellPosition = cellPosition.add(vec2(iX, iY))
 
-			If(currentPointDistance.lessThan(pointDistance), () =>
+			// Seed from cell position
+			const loopPointSeed = loopCellPosition.x.mod(subdivision).mul(subdivision).add(loopCellPosition.y.mod(subdivision)).add(seed)
+
+			// Point position from seed
+			const loopPointPosition = vec2(
+				hash(loopPointSeed),
+				hash(loopPointSeed.add(123.456)),
+			).add(loopCellPosition)
+
+			// Point distance
+			const loopPointDistance = pointsDistance(loopPointPosition, gridPosition)
+
+			// Loop point is closer than current
+			If(loopPointDistance.lessThan(pointDistance), () =>
 			{
+				// Move current closest to second closest
 				secondPointPosition.assign(pointPosition)
 				secondPointDistance.assign(pointDistance)
 
-				pointPosition.assign(currentPointPosition)
-				pointDistance.assign(currentPointDistance)
-				pointSeed.assign(currentPointSeed)
-			}).ElseIf(currentPointDistance.lessThan(secondPointDistance), () =>
+				// Save as current closest
+				pointPosition.assign(loopPointPosition)
+				pointDistance.assign(loopPointDistance)
+				pointSeed.assign(loopPointSeed)
+			})
+			// Loop point is closer to second closest
+			.ElseIf(loopPointDistance.lessThan(secondPointDistance), () =>
 			{
-				secondPointPosition.assign(currentPointPosition)
-				secondPointDistance.assign(currentPointDistance)
+				// Save as second closest
+				secondPointPosition.assign(loopPointPosition)
+				secondPointDistance.assign(loopPointDistance)
 			})
 		})
 	})
 
-	// // Edge distance approximation
-	// const edgeDistance = secondPointDistance.sub(pointDistance).abs()
+	// Edge distance approximation
+	const edgeDistanceApproximation = secondPointDistance.sub(pointDistance).abs()
 
 	// Exact edge distance
 	const direction = secondPointPosition.sub(pointPosition).normalize()
 	const middlePoint = pointPosition.add(secondPointPosition).mul(0.5)
-	const edgeDistance = dot(gridPosition.sub(middlePoint), direction).abs()
+	const edgeDistanceExact = dot(gridPosition.sub(middlePoint), direction).abs()
 
-	return vec4(pointDistance, edgeDistance, pointSeed, 1)
+	return vec4(pointDistance, edgeDistanceApproximation, edgeDistanceExact, pointSeed)
 })
 
